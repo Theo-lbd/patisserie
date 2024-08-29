@@ -44,9 +44,10 @@ class Appareil:
 
 
 class Commis(ABC, threading.Thread):
-    def __init__(self, nom):
+    def __init__(self, nom, recipient):
         threading.Thread.__init__(self) #initialisation de la classe parente
         self.nom = nom
+        self.recipient = recipient
 
     @abstractmethod
     def run(self):
@@ -54,25 +55,35 @@ class Commis(ABC, threading.Thread):
 
 
 class BatteurOeufs(Commis):
-    def __init__(self, nom, oeufs: Oeuf):
-        Commis.__init__(self, nom)
-        self.oeufs = oeufs
+    def __init__(self, nom, recipient: 'Recipient'):
+        Commis.__init__(self, nom, recipient)
 
     def run(self):
+        oeufs = self.recipient.contenu
         # on suppose qu'il faut 8 tours de batteur par œuf présent dans le bol
-        nb_tours = self.oeufs.quantite * 8
+        nb_tours = oeufs.quantite * 8
         for no_tour in range(1, nb_tours + 1):
-            print(f"\t{self.nom} bat les œufs, tour n°{no_tour}")
+            print(f"\t{self.nom} bat les œufs dans le {self.recipient.get_description()}, tour n°{no_tour}")
             time.sleep(0.5)  # temps supposé d'un tour de batteur
 
 
 class FondeurChocolat(Commis):
-    def __init__(self, nom, appareil: Appareil, chocolat: Chocolat):
-        Commis.__init__(self, nom)
-        self.appareil = appareil
-        self.chocolat = chocolat
+    def __init__(self, nom, recipient: 'Recipient'):
+        Commis.__init__(self, nom, recipient)
 
     def run(self):
+        appareil = self.recipient.contenu
+        chocolat = None
+
+        #cherche ingredient chocolat dans l'apparail
+        for ingredient in appareil.ingredients:
+            if isinstance(ingredient,Chocolat):
+                chocolat = ingredient
+                break
+
+        if chocolat is None:
+            raise ValueError("Pas de chocolat trouvé dans l'appareil")
+
         print(f"{self.nom} met de l'eau à chauffer dans une bouilloire")
         time.sleep(8)
         print(f"{self.nom} verse l'eau dans une casserole")
@@ -81,11 +92,18 @@ class FondeurChocolat(Commis):
         time.sleep(1)
         # on suppose qu'il faut 1 tour de spatule par 10 g. de chocolat
         # présent dans le bol pour faire fondre le chocolat
-        nb_tours = math.ceil(self.chocolat.quantite / 10)
+        nb_tours = math.ceil(chocolat.quantite / 10)
         for no_tour in range(1, nb_tours + 1):
-            print(f"{self.nom} mélange {self.chocolat.description()}, tour n°{no_tour}")
+            print(f"{self.nom} mélange {chocolat.description()} dans le {self.recipient.description}, tour n°{no_tour}")
             time.sleep(1)  # temps supposé d'un tour de spatule
 
+class Recipient:
+    def __init__(self, description, contenu=None):
+        self.description = description
+        self.contenu = contenu
+
+    def get_description(self):
+        return self.description
 
 if __name__ == "__main__":
     oeufs = Oeuf(6)
@@ -95,13 +113,16 @@ if __name__ == "__main__":
     appareil.ajouter_ingredient(oeufs)
     appareil.ajouter_ingredient(chocolat)
 
-    batteur = BatteurOeufs("Jonh", oeufs)
-    fondeur = FondeurChocolat("Jane",appareil, chocolat)
+    recipient_oeufs = Recipient("cul de poule avec œufs", oeufs)
+    recipient_chocolat = Recipient("bol avec chocolat", appareil)
+
+    batteur = BatteurOeufs("Jonh", recipient_oeufs)
+    fondeur = FondeurChocolat("Jane",recipient_chocolat)
 
     batteur.start()
     fondeur.start()
 
     batteur.join()
     fondeur.join()
-    print(f"\n{batteur.nom} peux à présent incorporer le chocolat par {fondeur.nom} aux oeufs")
+    print(f"\n{batteur.nom} peut à présent incorporer le chocolat fondu par {fondeur.nom} aux œufs.")
     print(appareil.description())
