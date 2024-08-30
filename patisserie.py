@@ -174,6 +174,59 @@ class FondeurChocolat(Commis):
             time.sleep(1)  # temps supposé d'un tour de spatule
 
 
+class Verseur(Commis):
+    """
+    Représente un commis chargé de verser le contenu d'un récipient dans un autre.
+
+    :param nom: Le nom du commis
+    :param recipient_source: le récipient source contenant le contenu à verser
+    :param recipient_destination: Le récipient destination où le contenu sera versé
+    :param rythme: Le rythme de versement (quantité par seconde)
+    """
+    def __init__(self, nom, recipient_source: 'Recipient', recipient_destination: 'Recipient', rythme: float):
+        Commis.__init__(self, nom, recipient_source)
+        self.recipient_source = recipient_source
+        self.recipient_destination = recipient_destination
+        self.rythme = rythme
+
+    def run(self):
+        """
+        Exécute le processus de versement du contenu d'un récipient à un autre.
+        """
+        contenu_source = self.recipient_source.contenu
+
+        if isinstance(contenu_source, Ingredient):
+            self.verser_ingredient(contenu_source)
+        elif isinstance(contenu_source, Appareil):
+            # On verse tous les ingrédients de l'appareil
+            for ingredient in contenu_source.ingredients:
+                self.verser_ingredient(ingredient)
+        else:
+            raise TypeError("Le contenu du récipient source n'est ni un Ingredient ni un Appareil.")
+
+    def verser_ingredient(self, ingredient):
+        quantite_a_verser = ingredient.quantite
+
+        while quantite_a_verser > 0:
+            versement = min(self.rythme, quantite_a_verser)
+            ingredient.quantite -= versement
+
+            if isinstance(self.recipient_destination.contenu, Appareil):
+                self.recipient_destination.contenu.ajouter_ingredient((
+                    type(ingredient)(versement)
+                ))
+            elif isinstance(self.recipient_destination.contenu, Ingredient):
+                self.recipient_destination.contenu.quantite += versement
+            else:
+                self.recipient_destination.contenu = type(ingredient)(versement)
+
+            quantite_a_verser -= versement
+            print(f"{self.nom} verse {versement} {ingredient.unite} de {ingredient.nom} dans {self.recipient_destination.get_description()}")
+            time.sleep(1)
+
+        print(f"{self.nom} a terminé de verser {ingredient.nom}")
+
+
 class Recipient:
     """
     Représente un récipient contenant des ingrédients.
@@ -204,14 +257,23 @@ if __name__ == "__main__":
 
     recipient_oeufs = Recipient("cul de poule avec œufs", oeufs)
     recipient_chocolat = Recipient("bol avec chocolat", appareil)
+    recipient_chocolat_2 = Recipient("second bol avec chocolat", appareil)  # Nouveau récipient
+    recipient_melange = Recipient("récipient pour mélange")  # Récipient destination pour le versement
 
     batteur = BatteurOeufs("Jonh", recipient_oeufs)
     fondeur = FondeurChocolat("Jane", recipient_chocolat)
+    fondeur_2 = FondeurChocolat("Doe", recipient_chocolat_2) # Nouveau Fondeur
+    verseur = Verseur("Alan", recipient_chocolat, recipient_melange, rythme=50)  # Nouveau verseur
 
     batteur.start()
     fondeur.start()
+    fondeur_2.start()
+    verseur.start()
 
     batteur.join()
     fondeur.join()
-    print(f"\n{batteur.nom} peut à présent incorporer le chocolat fondu par {fondeur.nom} aux œufs.")
+    fondeur_2.join()
+    verseur.join()
+
+    print(f"\n{batteur.nom} peut à présent incorporer le chocolat fondu par {fondeur.nom} et {fondeur_2.nom} aux œufs.")
     print(appareil.description())
